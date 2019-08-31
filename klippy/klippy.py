@@ -242,7 +242,7 @@ def main():
         opts.error("Incorrect number of arguments")
     start_args = {'config_file': args[0], 'start_reason': 'startup'}
 
-    input_fd = bglogger = None
+    input_fd = None
 
     debuglevel = logging.INFO
     if options.verbose:
@@ -256,25 +256,20 @@ def main():
     if options.debugoutput:
         start_args['debugoutput'] = options.debugoutput
         start_args.update(options.dictionary)
-    if options.logfile:
-        bglogger = queuelogger.setup_bg_logging(options.logfile, debuglevel)
-    else:
-        logging.basicConfig(level=debuglevel)
+    bglogger = queuelogger.setup_bg_logging(options.logfile or "/dev/stderr", debuglevel)
     logging.info("Starting Klippy...")
     start_args['software_version'] = util.get_git_version()
-    if bglogger is not None:
-        versions = "\n".join([
-            "Args: %s" % (sys.argv,),
-            "Git version: %s" % (repr(start_args['software_version']),),
-            "CPU: %s" % (util.get_cpu_info(),),
-            "Python: %s" % (repr(sys.version),)])
-        logging.info(versions)
+    versions = "\n".join([
+        "Args: %s" % (sys.argv,),
+        "Git version: %s" % (repr(start_args['software_version']),),
+        "CPU: %s" % (util.get_cpu_info(),),
+        "Python: %s" % (repr(sys.version),)])
+    logging.info(versions)
 
     # Start Printer() class
     while 1:
-        if bglogger is not None:
-            bglogger.clear_rollover_info()
-            bglogger.set_rollover_info('versions', versions)
+        bglogger.clear_rollover_info()
+        bglogger.set_rollover_info('versions', versions)
         printer = Printer(input_fd, bglogger, start_args)
         res = printer.run()
         if res in ['exit', 'error_exit']:
@@ -283,8 +278,7 @@ def main():
         logging.info("Restarting printer")
         start_args['start_reason'] = res
 
-    if bglogger is not None:
-        bglogger.stop()
+    bglogger.stop()
 
     if res == 'error_exit':
         sys.exit(-1)
